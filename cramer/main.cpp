@@ -26,8 +26,12 @@
 #define edited6 23
 #define label4 24
 #define label5 25
+#define display1 26
 
-HWND bt11, bt22, edit11, edit22, edit33, edit44, edit55, edit66, edit77, edit88, edit99, edit101, edit102, edit103, label11, label22, label33, label44, label55, edited11, edited22, edited33, edited44, edited55, edited66;
+HWND bt11, bt22, edit11, edit22, edit33, edit44, edit55, edit66, edit77, edit88, edit99, edit101, edit102, edit103, label11, label22, label33, label44, label55, edited11, edited22, edited33, edited44, edited55, edited66, display;
+
+HDC hMemDC = NULL; // DC de memória
+HBITMAP hBmp = NULL; // Bitmap compatível
 
 /* This is where all the input to the window goes to */
 
@@ -39,6 +43,12 @@ int * matriz2(int matriz[][2],int i[2])
 	
 	det[0]= (((matriz[0][0]*matriz[1][1])-(matriz[1][0]*matriz[0][1])));
 	
+	if(det[0]==0)
+	{
+		return 0;
+	}
+	else
+	{
 	matrizB[0]=matriz[0][0];
 	matrizB[1]=matriz[1][0];
 	
@@ -64,6 +74,7 @@ int * matriz2(int matriz[][2],int i[2])
 	
 	return k;
 }
+}
 
 int * matriz3(int matriz[][3],int i[3])
 {
@@ -73,6 +84,12 @@ int * matriz3(int matriz[][3],int i[3])
 	
 	det[0]= (((matriz[0][0]*matriz[1][1]*matriz[2][2])+(matriz[0][1]*matriz[1][2]*matriz[2][0])+(matriz[0][2]*matriz[1][0]*matriz[2][1]))-((matriz[2][0]*matriz[1][1]*matriz[0][2])+(matriz[2][1]*matriz[1][2]*matriz[0][0])+(matriz[2][2]*matriz[1][0]*matriz[0][1])));
 	
+	if(det[0]==0)
+	{
+		return 0;
+	}
+	else
+	{
 	matrizB[0]=matriz[0][0];
 	matrizB[1]=matriz[1][0];
 	matrizB[2]=matriz[2][0];
@@ -118,8 +135,16 @@ int * matriz3(int matriz[][3],int i[3])
 	
 	return k;
 }
+}
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT Message, WPARAM wParam, LPARAM lParam) {
+	
+	HDC hDC = NULL;
+  	PAINTSTRUCT psPaint;
+
+  	// Flag indicando se mostra ou não bitmap invertido
+  	static bool bInverteBmp = false;
+	
 	switch(Message) {
 		
 		case WM_CREATE:{
@@ -249,8 +274,65 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT Message, WPARAM wParam, LPARAM lParam) 
 			hwnd, (HMENU) label5, NULL, NULL
 			);
 			
+			display = CreateWindow(TEXT("edit"), TEXT(""),
+			WS_VISIBLE | WS_CHILD, 10,400,500,25,
+			hwnd, (HMENU) display1, NULL, NULL
+			);
+			
+			// Cria DC de memória (hMemDC é global)
+      		hDC = GetDC(hwnd);
+      		hMemDC = CreateCompatibleDC(hDC);
+
+	        // Cria / carrega bitmap do arquivo "prog06-1.bmp" (hBmp é global)
+	        hBmp = (HBITMAP)LoadImage(NULL, "autor.bmp", IMAGE_BITMAP, 708, 912, LR_LOADFROMFILE);
+	
+	        // Seleciona bitmap no DC de memória (configura DC de memória)
+	        SelectObject(hMemDC, hBmp);
+	
+	        // Retorna 0, significando que a mensagem foi processada corretamente
+	        return(0);
+			
 			break;
 		}
+		
+		case WM_PAINT: // Janela (ou parte dela) precisa ser atualizada
+    {
+      // Obtém DC de vídeo
+      hDC = BeginPaint(hwnd, &psPaint);
+
+      // Faz transferência de bits entre os DC's de memória e vídeo
+      BitBlt(hDC, 0, 0, 708, 912, hMemDC, 0, 0, SRCCOPY);
+
+      // Libera DC de vídeo
+      EndPaint(hwnd, &psPaint);
+
+      return(0);
+    } break;
+    
+    	case WM_CLOSE: // Janela foi fechada
+    {
+      // Deleta bitmap
+      DeleteObject(SelectObject(hMemDC, hBmp));
+
+      // Deleta DC de memória
+      DeleteDC(hMemDC);
+
+      // Destrói a janela
+      DestroyWindow(hwnd);
+
+      return(0);
+    } break;
+    
+    case WM_GETMINMAXINFO:
+{
+    MINMAXINFO* mmi = (MINMAXINFO*)lParam;
+    mmi->ptMinTrackSize.x = 640;
+    mmi->ptMinTrackSize.y = 480;
+    mmi->ptMaxTrackSize.x = 640;
+    mmi->ptMaxTrackSize.y = 480;
+    return 0;
+}
+		break;
 		
 		case WM_COMMAND:{
 			
@@ -314,6 +396,12 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT Message, WPARAM wParam, LPARAM lParam) 
 				
 				det = matriz3(matriz,i);
 				
+				if(det==0)
+					{
+						SendMessage((HWND)display,(UINT) WM_SETTEXT, (WPARAM) 1, (LPARAM) "Sistema impossivel ou Possível indeterminado.");
+						break;
+					}
+				
 				itoa(det[0],det1,10);
 				itoa(det[1],det2,10);
 				itoa(det[2],det3,10);
@@ -321,6 +409,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT Message, WPARAM wParam, LPARAM lParam) 
 				SendMessage((HWND)label11,(UINT) WM_SETTEXT, (WPARAM) 1, (LPARAM) &det1);
 				SendMessage((HWND)label22,(UINT) WM_SETTEXT, (WPARAM) 1, (LPARAM) &det2);
 				SendMessage((HWND)label33,(UINT) WM_SETTEXT, (WPARAM) 1, (LPARAM) &det3);
+				SendMessage((HWND)display,(UINT) WM_SETTEXT, (WPARAM) 1, (LPARAM) "Sistema possível determinado.");
+				
 				
 			}
 			
@@ -328,11 +418,17 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT Message, WPARAM wParam, LPARAM lParam) 
 				
 				detA = matriz2(matrizA,e);
 				
+				if(detA==0)
+					{
+						SendMessage((HWND)display,(UINT) WM_SETTEXT, (WPARAM) 1, (LPARAM) "Sistema impossivel ou Possível indeterminado.");
+						break;
+					}
 				itoa(detA[0],det4,10);
 				itoa(detA[1],det5,10);
 				
 				SendMessage((HWND)label44,(UINT) WM_SETTEXT, (WPARAM) 1, (LPARAM) &det4);
 				SendMessage((HWND)label55,(UINT) WM_SETTEXT, (WPARAM) 1, (LPARAM) &det5);
+				SendMessage((HWND)display,(UINT) WM_SETTEXT, (WPARAM) 1, (LPARAM) "Sistema possível determinado.");
 				
 			}
 
@@ -376,7 +472,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		return 0;
 	}
 
-	hwnd = CreateWindowEx(WS_EX_CLIENTEDGE,"WindowClass","Regra de Crammer",WS_VISIBLE|WS_OVERLAPPEDWINDOW,
+	hwnd = CreateWindowEx(WS_EX_CLIENTEDGE,"WindowClass","Regra de Cramer",WS_VISIBLE|WS_OVERLAPPEDWINDOW,
 		CW_USEDEFAULT, /* x */
 		CW_USEDEFAULT, /* y */
 		640, /* width */
