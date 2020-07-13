@@ -1,4 +1,0 @@
-#include"res.h"
-
-MAINICON ICON"c.ico"
-IDI_MEUICONE ICON"c.ico"
